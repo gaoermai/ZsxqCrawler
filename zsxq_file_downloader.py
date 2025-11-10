@@ -529,6 +529,15 @@ class ZSXQFileDownloader:
         file_name = file_data.get('name', 'Unknown')
         file_size = file_data.get('size', 0)
         download_count = file_data.get('download_count', 0)
+
+        create_time_is_now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        create_time = file_data.get('create_time', 0)
+        if create_time:
+            ts_create_time = datetime.datetime.strptime(create_time, "%Y-%m-%dT%H:%M:%S.%f%z").timestamp()
+        else:
+            create_time = create_time_is_now
+            ts_create_time = datatime.datetime.strptime(create_time_is_now, "%Y-%m-%d %H:%M:%S").timestamp()
+
         
         self.log(f"📥 准备下载文件:")
         self.log(f"   📄 名称: {file_name}")
@@ -613,6 +622,10 @@ class ZSXQFileDownloader:
                 final_size = os.path.getsize(file_path)
                 if file_size > 0 and final_size != file_size:
                     self.log(f"   ⚠️ 文件大小不匹配: 预期{file_size:,}, 实际{final_size:,}")
+
+                # 修改下载文件的创建时间
+                os.utime(file_path, (ts_create_time, ts_create_time))
+                self.log(f"   ✅ 修改文件创建时间: {create_time}")
 
                 self.log(f"   ✅ 下载完成: {safe_filename}")
                 self.log(f"   💾 保存路径: {file_path}")
@@ -1102,7 +1115,8 @@ class ZSXQFileDownloader:
                         'id': file_id,  # 使用正确的file_id
                         'name': file_name,
                         'size': file_size,
-                        'download_count': download_count
+                        'download_count': download_count,
+                        'create_time': create_time # 传入创建时间用来作为下载文件的创建时间
                     }
                 }
                 
