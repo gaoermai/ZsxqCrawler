@@ -555,15 +555,28 @@ class ZSXQFileDownloader:
             safe_filename = f"file_{file_id}"
         
         file_path = os.path.join(self.download_dir, safe_filename)
+
+        # 检查数据库，看是否已经下载过
+        self.file_db.cursor.execute('''
+            SELECT COUNT(*) as total_count
+            FROM topic_files 
+            WHERE download_time IS NOT NULL AND download_time <> '' AND file_id == ?
+        ''', (file_id,))
+        downloaded_file_count = self.file_db.cursor.fetchone()
+        if downloaded_file_count[0] > 0:
+            self.log("🛑 下载任务被停止，数据库中发现历史下载过")
+            return False
         
         # 🚀 优化：先检查本地文件，避免无意义的API请求
         if os.path.exists(file_path):
             existing_size = os.path.getsize(file_path)
             if existing_size == file_size:
                 self.log(f"   ✅ 文件已存在且大小匹配，跳过下载")
+                self._update_download_time_in_db(file_id)
                 return "skipped"  # 返回特殊值表示跳过
             else:
                 self.log(f"   ⚠️ 文件已存在但大小不匹配，重新下载")
+
         
         # 只有在需要下载时才获取下载链接
         download_url = self.get_download_url(file_id)
@@ -626,6 +639,9 @@ class ZSXQFileDownloader:
                 # 修改下载文件的创建时间
                 os.utime(file_path, (ts_create_time, ts_create_time))
                 self.log(f"   ✅ 修改文件创建时间: {create_time}")
+
+                # 更新数据库中的下载时间
+                self._update_download_time_in_db(file_id)
 
                 self.log(f"   ✅ 下载完成: {safe_filename}")
                 self.log(f"   💾 保存路径: {file_path}")
@@ -1261,3 +1277,14 @@ class ZSXQFileDownloader:
         if hasattr(self, 'file_db') and self.file_db:
             self.file_db.close()
             print("🔒 文件数据库连接已关闭") 
+
+
+    def _update_download_time_in_db(self, file_id: str):
+        """更新文件下载时间到数据库"""
+        self.file_db.cursor.execute('''
+            UPDATE topic_files SET 
+                download_time = ?
+            WHERE file_id = ?
+        ''', (datetime.datetime.now().isoformat(), file_id))
+        self.file_db.conn.commit()
+        self.log(f"   ✅ 更新下载时间，file_id: {file_id}")

@@ -248,6 +248,7 @@ class ZSXQDatabase:
                 duration INTEGER,
                 download_count INTEGER,
                 create_time TEXT,
+                download_time TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (topic_id) REFERENCES topics (topic_id)
             )
